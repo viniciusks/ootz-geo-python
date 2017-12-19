@@ -53,12 +53,18 @@ class allEstados(DefaultHandler):
         else:
             for dado in dados:
                 estado_list.append(dado)
-            self.write(json.dumps({"return_code": 200, "data": estado_list}, default=json_util.default))            
+            self.write(json.dumps({"return_code": 200, "data": estado_list}, default=json_util.default))
+
+class allCidades(DefaultHandler):
+    def get(self,uf):
+        # Fazer verificação len(uf) == 2 continua, senao exibe erro
+        print(len(uf))
 
 def make_app():
     return tornado.web.Application([
         (r"/", Home),
         (r"/estados", allEstados),
+        (r"/cidades/(.*)", allCidades),
     ])
 
 if __name__ == "__main__":
