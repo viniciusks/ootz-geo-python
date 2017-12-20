@@ -6,10 +6,16 @@ import codecs
 import tornado.ioloop
 import tornado.web
 import tornado.template
+import urllib3
+import pycep_correios
+from pycep_correios.excecoes import CEPInvalido
 from pymongo import MongoClient
 from bson.json_util import dumps
 from bson.json_util import loads
 from bson import json_util
+
+# Desabilitando warnings
+urllib3.disable_warnings()
 
 # Conexão MongoDB
 client = MongoClient('localhost', 27017)
@@ -88,11 +94,28 @@ class allCidades(DefaultHandler):
         else:
             self.ResponseWithJson(404,"Digite uma sigla válida")
 
+class ConsultaCep(DefaultHandler):
+    def initialize(self):
+        super(ConsultaCep, self).initialize()
+
+    def get(self,cep_param):
+        try:
+            endereco = pycep_correios.consultar_cep(cep_param)
+            cep = ceps.find_one({"cep": endereco["cep"]}, {"_id": False})
+            if cep is None:
+                ceps.insert_one(endereco)
+                self.ResponseWithJson(200,endereco)
+            else:
+                self.ResponseWithJson(200,cep)
+        except CEPInvalido:
+            self.ResponseWithJson(404,"CEP inválido!")
+
 def make_app():
     return tornado.web.Application([
         (r"/", Home),
         (r"/estados", allEstados),
         (r"/cidades/(.*)", allCidades),
+        (r"/consulta/cep/(.*)", ConsultaCep),
     ])
 
 if __name__ == "__main__":
