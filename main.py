@@ -19,9 +19,11 @@ cidades = db.cidades
 estados = db.estados
 
 class DefaultHandler(tornado.web.RequestHandler):
-    def ResponseWithJson(self,return_code,est_json):
+    def initialize(self):
         self.set_header("Content-Type", "application/json")
         self.content_type = 'application/json'
+
+    def ResponseWithJson(self,return_code,est_json):
         self.write(json.dumps({"return_code": return_code, "data": est_json}, default=json_util.default))
 
 class Home(DefaultHandler):
@@ -29,6 +31,9 @@ class Home(DefaultHandler):
         self.render("views/index.html")
 
 class allEstados(DefaultHandler):
+    def initialize(self):
+        super(allEstados, self).initialize()
+
     def get(self):
         dados = estados.find({}, {'_id': False})
         print(dados.count())
