@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Imports
 import csv
 import json
@@ -19,7 +18,9 @@ urllib3.disable_warnings()
 
 # Conexão MongoDB
 client = MongoClient('localhost', 27017)
+# Database
 db = client.ootz_geo
+# Collections
 ceps = db.ceps
 cidades = db.cidades
 estados = db.estados
