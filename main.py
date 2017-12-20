@@ -18,7 +18,7 @@ import config
 urllib3.disable_warnings()
 
 # Conexão MongoDB APP_CONFIG['mongodb']['host']
-client = MongoClient(APP_CONFIG['mongodb']['host'], APP_CONFIG['mongodb']['port'])
+client = MongoClient(config.APP_SETTINGS['mongodb']['host'], config.APP_SETTINGS['mongodb']['port'])
 # Database
 db = client.ootz_geo
 # Collections
