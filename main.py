@@ -12,12 +12,13 @@ from pymongo import MongoClient
 from bson.json_util import dumps
 from bson.json_util import loads
 from bson import json_util
+import config
 
 # Desabilitando warnings
 urllib3.disable_warnings()
 
-# Conexão MongoDB
-client = MongoClient('localhost', 27017)
+# Conexão MongoDB APP_CONFIG['mongodb']['host']
+client = MongoClient(APP_CONFIG['mongodb']['host'], APP_CONFIG['mongodb']['port'])
 # Database
 db = client.ootz_geo
 # Collections
@@ -35,7 +36,7 @@ class DefaultHandler(tornado.web.RequestHandler):
 
 class Home(DefaultHandler):
     def get(self):
-        self.ResponseWithJson(200,"Ok")
+        self.ResponseWithJson(1,"Ok")
 
 class allEstados(DefaultHandler):
     def initialize(self):
@@ -55,11 +56,11 @@ class allEstados(DefaultHandler):
                     }
                     estado_list.append(estado)
             estados.insert_many(estado_list)
-            self.ResponseWithJson(200,estado_list)
+            self.ResponseWithJson(1,estado_list)
         else:
             for dado in dados:
                 estado_list.append(dado)
-            self.ResponseWithJson(200,estado_list)
+            self.ResponseWithJson(1,estado_list)
 
 class allCidades(DefaultHandler):
     def initialize(self):
@@ -86,14 +87,14 @@ class allCidades(DefaultHandler):
                 dadosCriados = cidades.find({"estado_uf": ufUpper}, {"_id": False})
                 for dado in dadosCriados:
                     cidade_list.append(dado)
-                self.ResponseWithJson(200,cidade_list)
+                self.ResponseWithJson(1,cidade_list)
             else:
                 for dado in dados:
                     cidade_list.append(dado)
-                self.ResponseWithJson(200,cidade_list)
+                self.ResponseWithJson(1,cidade_list)
                 
         else:
-            self.ResponseWithJson(404,"Digite uma sigla válida")
+            self.ResponseWithJson(0,"Digite uma sigla válida")
 
 class ConsultaCep(DefaultHandler):
     def initialize(self):
@@ -105,11 +106,11 @@ class ConsultaCep(DefaultHandler):
             cep = ceps.find_one({"cep": endereco["cep"]}, {"_id": False})
             if cep is None:
                 ceps.insert_one(endereco)
-                self.ResponseWithJson(200,endereco)
+                self.ResponseWithJson(1,endereco)
             else:
-                self.ResponseWithJson(200,cep)
+                self.ResponseWithJson(1,cep)
         except CEPInvalido:
-            self.ResponseWithJson(404,"CEP inválido!")
+            self.ResponseWithJson(0,"CEP inválido!")
 
 def make_app():
     return tornado.web.Application([
