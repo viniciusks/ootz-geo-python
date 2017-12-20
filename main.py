@@ -19,15 +19,10 @@ cidades = db.cidades
 estados = db.estados
 
 class DefaultHandler(tornado.web.RequestHandler):
-    def initialize(self):
-        self.set_header("Content-Type", "application/json") 
+    def ResponseWithJson(self,return_code,est_json):
+        self.set_header("Content-Type", "application/json")
         self.content_type = 'application/json'
-
-    def ResponseWithJson(self,return_code=0,json=0):
-        #self.write(json.dumps({"return_code": return_code, "data": json}, default=json_util.default))
-        print("FAAAALA GALERA!!!")
-        print(return_code)
-        print(json)
+        self.write(json.dumps({"return_code": return_code, "data": est_json}, default=json_util.default))
 
 class Home(DefaultHandler):
     def get(self):
@@ -35,7 +30,7 @@ class Home(DefaultHandler):
 
 class allEstados(DefaultHandler):
     def get(self):
-        dados = estados.find()
+        dados = estados.find({}, {'_id': False})
         print(dados.count())
         estado_list = []
         if dados.count() == 0:
@@ -49,16 +44,18 @@ class allEstados(DefaultHandler):
                     }
                     estado_list.append(estado)
             estados.insert_many(estado_list)
-            self.write(json.dumps({"return_code": 200, "data": estado_list}, default=json_util.default))
+            self.ResponseWithJson(200,estado_list)
         else:
             for dado in dados:
                 estado_list.append(dado)
-            self.write(json.dumps({"return_code": 200, "data": estado_list}, default=json_util.default))
+            self.ResponseWithJson(200,estado_list)
 
 class allCidades(DefaultHandler):
     def get(self,uf):
-        # Fazer verificação len(uf) == 2 continua, senao exibe erro
-        print(len(uf))
+        if len(uf) == 2:
+            print("Continua")
+        else:
+            self.write(json.dumps({"return_code": 404, "data": "Digite uma sigla válida."}, default=json_util.default))
 
 def make_app():
     return tornado.web.Application([
