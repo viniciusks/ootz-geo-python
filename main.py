@@ -36,16 +36,15 @@ class allEstados(DefaultHandler):
 
     def get(self):
         dados = estados.find({}, {'_id': False})
-        print(dados.count())
         estado_list = []
         if dados.count() == 0:
             with codecs.open('data/uf.csv') as ficheiro:
                 reader = csv.reader(ficheiro)
                 for linha in reader:
                     estado = {
-                        "estadoID": linha[0],
-                        "estadoUf": linha[1],
-                        "estadoNome": linha[2]
+                        "estado_id": linha[0],
+                        "estado_uf": linha[1],
+                        "estado": linha[2]
                     }
                     estado_list.append(estado)
             estados.insert_many(estado_list)
@@ -56,11 +55,38 @@ class allEstados(DefaultHandler):
             self.ResponseWithJson(200,estado_list)
 
 class allCidades(DefaultHandler):
+    def initialize(self):
+        super(allCidades, self).initialize()
+
     def get(self,uf):
         if len(uf) == 2:
-            print("Continua")
+            ufUpper = uf.upper()
+            dados = cidades.find({"estado_uf": ufUpper}, {"_id": False})
+            cidade_list = []
+            if dados.count() == 0:
+                print("entrou")
+                with codecs.open('data/cidades.csv') as ficheiro:
+                    reader = csv.reader(ficheiro)
+                    for linha in reader:
+                        cidade = {
+                            "cidade_ibge": linha[0],
+                            "estado_uf": linha[1],
+                            "cidade_nome": linha[2]
+                        }
+                        cidade_list.append(cidade)
+                cidades.insert_many(cidade_list)
+                cidade_list = []
+                dadosCriados = cidades.find({"estado_uf": ufUpper}, {"_id": False})
+                for dado in dadosCriados:
+                    cidade_list.append(dado)
+                self.ResponseWithJson(200,cidade_list)
+            else:
+                for dado in dados:
+                    cidade_list.append(dado)
+                self.ResponseWithJson(200,cidade_list)
+                
         else:
-            self.write(json.dumps({"return_code": 404, "data": "Digite uma sigla válida."}, default=json_util.default))
+            self.ResponseWithJson(404,"Digite uma sigla válida")
 
 def make_app():
     return tornado.web.Application([
