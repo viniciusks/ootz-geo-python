@@ -35,7 +35,7 @@ class DefaultHandler(tornado.web.RequestHandler):
 
 class Home(DefaultHandler):
     def get(self):
-        self.render("views/index.html")
+        self.ResponseWithJson(200,"Ok")
 
 class allEstados(DefaultHandler):
     def initialize(self):
@@ -121,5 +121,5 @@ def make_app():
 
 if __name__ == "__main__":
     app = make_app()
-    app.listen(8080)
+    app.listen(8086)
     tornado.ioloop.IOLoop.current().start()
