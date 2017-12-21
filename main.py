@@ -16,7 +16,7 @@ import config
 # Desabilitando warnings
 urllib3.disable_warnings()
 
-# Conexão MongoDB APP_CONFIG['mongodb']['host']
+# Conexão MongoDB
 client = MongoClient(config.APP_SETTINGS['mongodb']['host'], config.APP_SETTINGS['mongodb']['port'])
 # Database
 db = client[config.APP_SETTINGS['database']]
