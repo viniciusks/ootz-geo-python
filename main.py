@@ -1,7 +1,6 @@
 # Imports
 import csv
 import json
-import codecs
 import tornado.ioloop
 import tornado.web
 import tornado.template
@@ -20,7 +19,7 @@ urllib3.disable_warnings()
 # Conexão MongoDB APP_CONFIG['mongodb']['host']
 client = MongoClient(config.APP_SETTINGS['mongodb']['host'], config.APP_SETTINGS['mongodb']['port'])
 # Database
-db = client.ootz_geo
+db = client[config.APP_SETTINGS['database']]
 # Collections
 ceps = db.ceps
 cidades = db.cidades
@@ -39,14 +38,14 @@ class Home(DefaultHandler):
         self.ResponseWithJson(1,"Ok")
 
 class allEstados(DefaultHandler):
-    def initialize(self):
-        super(allEstados, self).initialize()
-
     def get(self):
+        # Procura as informações no database na collection estados
         dados = estados.find({}, {'_id': False})
         estado_list = []
+        # Se dados.count() == 0 então o dados está vazio
         if dados.count() == 0:
-            with codecs.open('data/uf.csv') as ficheiro:
+            # lê o arquivo .csv que está na pasta data
+            with open('data/uf.csv') as ficheiro:
                 reader = csv.reader(ficheiro)
                 for linha in reader:
                     estado = {
@@ -55,7 +54,15 @@ class allEstados(DefaultHandler):
                         "estado": linha[2]
                     }
                     estado_list.append(estado)
+            
+            # Insere as informações na collection
             estados.insert_many(estado_list)
+            estado_list = []
+            
+            # Procura no database os dados inseridos e já os lista
+            dadosCriados = estados.find({}, {'_id': False})
+            for dado in dados:
+                estado_list.append(dado)
             self.ResponseWithJson(1,estado_list)
         else:
             for dado in dados:
@@ -63,18 +70,20 @@ class allEstados(DefaultHandler):
             self.ResponseWithJson(1,estado_list)
 
 class allCidades(DefaultHandler):
-    def initialize(self):
-        super(allCidades, self).initialize()
-
     def get(self,uf):
         if len(uf) == 2:
+            # Tudo que vier no uf passa pelo upper() -> tudo maiúsculo
             ufUpper = uf.upper()
+            
+            # {"_id": False} nega o dado "_id" de vir junto com as outras informações
             dados = cidades.find({"estado_uf": ufUpper}, {"_id": False})
             cidade_list = []
             if dados.count() == 0:
-                print("entrou")
-                with codecs.open('data/cidades.csv') as ficheiro:
+                # lê o arquivo .csv que está na pasta data
+                with open('data/cidades.csv') as ficheiro:
                     reader = csv.reader(ficheiro)
+                    
+                    # lê cada linha do arquivo
                     for linha in reader:
                         cidade = {
                             "cidade_ibge": linha[0],
@@ -82,8 +91,12 @@ class allCidades(DefaultHandler):
                             "cidade_nome": linha[2]
                         }
                         cidade_list.append(cidade)
+                
+                # Insere as informações na collection
                 cidades.insert_many(cidade_list)
                 cidade_list = []
+                
+                # e depois ja faz um find para listar na tela as informações
                 dadosCriados = cidades.find({"estado_uf": ufUpper}, {"_id": False})
                 for dado in dadosCriados:
                     cidade_list.append(dado)
@@ -92,18 +105,19 @@ class allCidades(DefaultHandler):
                 for dado in dados:
                     cidade_list.append(dado)
                 self.ResponseWithJson(1,cidade_list)
-                
         else:
             self.ResponseWithJson(0,"Digite uma sigla válida")
 
 class ConsultaCep(DefaultHandler):
-    def initialize(self):
-        super(ConsultaCep, self).initialize()
-
     def get(self,cep_param):
         try:
+            # Procura pelo cep desejado, se der qualquer erro nessa linha já vai para o except
             endereco = pycep_correios.consultar_cep(cep_param)
+
+            # Procura pelo cep desejado no database
             cep = ceps.find_one({"cep": endereco["cep"]}, {"_id": False})
+
+            # Se não encontrar, já insere e lista
             if cep is None:
                 ceps.insert_one(endereco)
                 self.ResponseWithJson(1,endereco)
