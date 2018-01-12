@@ -1,3 +1,4 @@
+# -*- coding: UTF-8 -*-
 # Imports
 import csv
 import json
@@ -18,6 +19,12 @@ urllib3.disable_warnings()
 
 # Conexão MongoDB
 client = MongoClient(config.APP_SETTINGS['mongodb']['host'], config.APP_SETTINGS['mongodb']['port'])
+
+## -- CONEXÃO COM O MONGO DENTRO DO KUBERNETES -- ##
+# uri = "mongodb://mongo-0.mongo:27017,mongo-1.mongo:27017,mongo-2.mongo:27017"
+# client = MongoClient(uri)
+## ---------------------------------------------- ##
+
 # Database
 db = client[config.APP_SETTINGS['database']]
 # Collections

@@ -1,4 +1,7 @@
 .vscode/
-python3/
+env/
 __pycache__
 config.py
+docker
+kube
+Dockerfile
