@@ -6,8 +6,10 @@ import tornado.ioloop
 import tornado.web
 import tornado.template
 import urllib3
+import requests
 import pycep_correios
 from pycep_correios.excecoes import CEPInvalido
+from viacep import viacep
 from pymongo import MongoClient
 from bson.json_util import dumps
 from bson.json_util import loads
@@ -117,21 +119,70 @@ class allCidades(DefaultHandler):
 
 class ConsultaCep(DefaultHandler):
     def get(self,cep_param):
-        try:
-            # Procura pelo cep desejado, se der qualquer erro nessa linha já vai para o except
-            endereco = pycep_correios.consultar_cep(cep_param)
+        # Pega o type cep, para ver qual api será utilizada
+        type_cep = self.get_argument("type","")
+        type_cep_low = type_cep.lower()
 
+        if type_cep_low == "viacep":
+            
             # Procura pelo cep desejado no database
-            cep = ceps.find_one({"cep": endereco["cep"]}, {"_id": False})
+            cep = ceps.find_one({"cep": cep_param}, {"_id": False})
+            
+            # Verifica se o cep não é inválido
+            if len(cep_param) > 8:
+                self.ResponseWithJson(0,"CEP inválido!")
+                return
 
-            # Se não encontrar, já insere e lista
-            if cep is None:
-                ceps.insert_one(endereco)
-                self.ResponseWithJson(1,endereco)
+            # Se não existir o cep, ele é inserido no MongoDB
+            if cep == None:
+                endereco = viacep.ViaCEP(cep_param)
+                data = endereco.getDadosCEP()
+                if data['logradouro'] == "":
+                    self.ResponseWithJson(0,"CEP inválido!")
+                    return
+                # Faz um find_one nos estados referente ao cep, para trazer junto o estado por escrito
+                estado = estados.find_one({"estado_uf": data['uf']}, {"_id": False})
+                # Estrutura base para o MongoDB
+                endereco_json = {
+                    "cep": data['cep'],
+                    "logradouro": data['logradouro'],
+                    "cidade": data['localidade'],
+                    "bairro": data['bairro'],
+                    "estado": estado['estado'],
+                    "uf": data['uf']
+                }
+                # Inserção no MongoDB
+                ceps.insert_one(endereco_json)
+                self.ResponseWithJson(1,endereco_json)
+            # Caso contrário apenas traz o valor dele
             else:
                 self.ResponseWithJson(1,cep)
-        except CEPInvalido:
-            self.ResponseWithJson(0,"CEP inválido!")
+        elif type_cep_low == "pycorreios":
+            # Procura pelo cep desejado no database
+            cep = ceps.find_one({"cep": cep_param}, {"_id": False})
+
+            if cep == None:
+                # Procura pelo cep desejado, se der qualquer erro nessa linha já vai para o except
+                try:
+                    endereco = pycep_correios.consultar_cep(cep_param)
+                except CEPInvalido:
+                    self.ResponseWithJson(0,"CEP inválido!")
+                # Faz um find_one nos estados referente ao cep, para trazer junto o estado por escrito
+                estado = estados.find_one({"estado_uf": endereco['uf']}, {"_id": False})
+                # Estrutura base para o MongoDB
+                endereco_json = {
+                    "cep": endereco['cep'],
+                    "logradouro": endereco['end'],
+                    "cidade": endereco['cidade'],
+                    "bairro": endereco['bairro'],
+                    "estado": estado['estado'],
+                    "uf": endereco['uf']
+                }
+                # Inserção no MongoDB
+                ceps.insert_one(endereco_json)
+                self.ResponseWithJson(1,endereco_json)
+            else:
+                self.ResponseWithJson(1,cep)
 
 def make_app():
     return tornado.web.Application([
