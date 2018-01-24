@@ -80,10 +80,41 @@ class allEstados(DefaultHandler):
 
 class allCidades(DefaultHandler):
     def get(self,uf):
-        if len(uf) == 2:
-            # Tudo que vier no uf passa pelo upper() -> tudo maiúsculo
-            ufUpper = uf.upper()
-            
+        # Tudo que vier no uf passa pelo upper() -> tudo maiúsculo
+        ufUpper = uf.upper()
+        
+        if uf == "":
+            # {"_id": False} nega o dado "_id" de vir junto com as outras informações
+            dados = cidades.find({}, {"_id": False})
+            cidade_list = []
+            if dados.count() == 0:
+                # lê o arquivo .csv que está na pasta data
+                with open('data/cidades.csv') as ficheiro:
+                    reader = csv.reader(ficheiro)
+                    
+                    # lê cada linha do arquivo
+                    for linha in reader:
+                        cidade = {
+                            "cidade_ibge": linha[0],
+                            "estado_uf": linha[1],
+                            "cidade_nome": linha[2]
+                        }
+                        cidade_list.append(cidade)
+                
+                # Insere as informações na collection
+                cidades.insert_many(cidade_list)
+                cidade_list = []
+                
+                # e depois ja faz um find para listar na tela as informações
+                dadosCriados = cidades.find({}, {"_id": False})
+                for dado in dadosCriados:
+                    cidade_list.append(dado)
+                self.ResponseWithJson(1,cidade_list)
+            else:
+                for dado in dados:
+                    cidade_list.append(dado)
+                self.ResponseWithJson(1,cidade_list)
+        elif len(uf) == 2:
             # {"_id": False} nega o dado "_id" de vir junto com as outras informações
             dados = cidades.find({"estado_uf": ufUpper}, {"_id": False})
             cidade_list = []
@@ -115,53 +146,80 @@ class allCidades(DefaultHandler):
                     cidade_list.append(dado)
                 self.ResponseWithJson(1,cidade_list)
         else:
-            self.ResponseWithJson(0,"Digite uma sigla válida")
+                self.ResponseWithJson(0,"Digite uma sigla válida")
 
 class ConsultaCep(DefaultHandler):
     def get(self,cep_param):
         # Pega o type cep, para ver qual api será utilizada
         type_cep = self.get_argument("type","")
         type_cep_low = type_cep.lower()
+        if type_cep == "":
+            type_cep_low = "viacep"
+
+        endereco_json = {}
+        flag_insertion = False
+        str1 = ""
+        str2 = ""
+
+        # Verifica se o cep não é inválido
+        if len(cep_param) > 8:
+            self.ResponseWithJson(0,"CEP inválido!")
+            return
 
         if type_cep_low == "viacep":
-            
             # Procura pelo cep desejado no database
             cep = ceps.find_one({"cep": cep_param}, {"_id": False})
-            
-            # Verifica se o cep não é inválido
-            if len(cep_param) > 8:
-                self.ResponseWithJson(0,"CEP inválido!")
-                return
 
             # Se não existir o cep, ele é inserido no MongoDB
-            if cep == None:
+            if cep is None:
                 endereco = viacep.ViaCEP(cep_param)
+
+                # Traz todas as informações do CEP que vieram do "ViaCEP()"
                 data = endereco.getDadosCEP()
-                if data['logradouro'] == "":
-                    self.ResponseWithJson(0,"CEP inválido!")
-                    return
+
+                # Tratamento de erro, caso o CEP não exista
+                for d in data:
+                    if d == "erro":
+                        self.ResponseWithJson(0,"CEP inválido!")
+                        return
+
+                # Trata o CEP vindo do viacep, retira o "-" do CEP
+                for i,dc in enumerate(data['cep']):
+                    if i <= 4:
+                        str1 += dc
+                    elif i > 5:
+                        str2 += dc
+                    else:
+                        pass
+                
+                # Junta as strings do CEP que antes estavam separadas
+                data_cep = '{}{}'.format(str1,str2)
+
                 # Faz um find_one nos estados referente ao cep, para trazer junto o estado por escrito
                 estado = estados.find_one({"estado_uf": data['uf']}, {"_id": False})
+
                 # Estrutura base para o MongoDB
                 endereco_json = {
-                    "cep": data['cep'],
+                    "cep": data_cep,
                     "logradouro": data['logradouro'],
                     "cidade": data['localidade'],
                     "bairro": data['bairro'],
                     "estado": estado['estado'],
                     "uf": data['uf']
                 }
-                # Inserção no MongoDB
-                ceps.insert_one(endereco_json)
-                self.ResponseWithJson(1,endereco_json)
+
+                # Flag para permitir a inserção do CEP dentro do MongoDB
+                flag_insertion = True
+
             # Caso contrário apenas traz o valor dele
             else:
-                self.ResponseWithJson(1,cep)
+                endereco_json = cep
+
         elif type_cep_low == "pycorreios":
             # Procura pelo cep desejado no database
             cep = ceps.find_one({"cep": cep_param}, {"_id": False})
 
-            if cep == None:
+            if cep is None:
                 # Procura pelo cep desejado, se der qualquer erro nessa linha já vai para o except
                 try:
                     endereco = pycep_correios.consultar_cep(cep_param)
@@ -178,18 +236,29 @@ class ConsultaCep(DefaultHandler):
                     "estado": estado['estado'],
                     "uf": endereco['uf']
                 }
-                # Inserção no MongoDB
-                ceps.insert_one(endereco_json)
-                self.ResponseWithJson(1,endereco_json)
+
+                # Flag para permitir a inserção do CEP dentro do MongoDB
+                flag_insertion = True
+            
+            # Caso contrário apenas traz o valor dele
             else:
-                self.ResponseWithJson(1,cep)
+                endereco_json = cep
+
+        # Precisa da permissão para entrar neste bloco de código
+        if flag_insertion == True:
+            # Inserção no MongoDB
+            ceps.insert_one(endereco_json)
+            endereco_json = ceps.find_one({"cep": endereco_json['cep']}, {"_id": False})
+            self.ResponseWithJson(1,endereco_json)
+        else:
+            self.ResponseWithJson(1,endereco_json)
 
 def make_app():
     return tornado.web.Application([
         (r"/", Home),
         (r"/estados", allEstados),
         (r"/cidades/(.*)", allCidades),
-        (r"/consulta/cep/(.*)", ConsultaCep),
+        (r"/consulta/cep/([0-9]+)", ConsultaCep),
     ])
 
 if __name__ == "__main__":
