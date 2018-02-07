@@ -150,7 +150,6 @@ class allCidades(DefaultHandler):
 
 class ConsultaCep(DefaultHandler):
     def get(self,cep_param):
-        # COMENTÁRIO TESTE
         # Pega o type cep, para ver qual api será utilizada
         type_cep = self.get_argument("type","")
         type_cep_low = type_cep.lower()
